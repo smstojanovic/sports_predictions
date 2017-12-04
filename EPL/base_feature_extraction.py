@@ -27,7 +27,28 @@ teams = list(set(df['team_1_name'].unique().tolist()) | set(df['team_2_name'].un
 
 
 # helper functions for feature building below:
+tmp_team_frame = team_frames[-1]
 #def build_features(team_frame):
+
+# remove any nan scores
+#tmp_team_frame = tmp_team_frame[np.isnan(tmp_team_frame['team_score']) == False]
+tmp_team_frame = tmp_team_frame.sort_values(['date'])
+
+# get match count in EPL
+tmp_team_frame = tmp_team_frame.reset_index(drop = True).reset_index()
+tmp_team_frame['match_count'] = tmp_team_frame['index']+1
+tmp_team_frame = tmp_team_frame.drop('index', axis = 1)
+
+np.array(tmp_team_frame['team_score'])
+
+
+
+# get rolling moving averages of scores
+tmp_team_frame['team_score_ma_10'] = talib.MA(np.array([np.nan] + np.array(tmp_team_frame['team_score'])[:-1].tolist()), timeperiod = 10, matype=0)
+tmp_team_frame['team_score_ema_10'] = talib.EMA(np.array([np.nan] + np.array(tmp_team_frame['team_score'])[:-1].tolist()), timeperiod = 10)
+tmp_team_frame['team_last_score'] = talib.MA(np.array([np.nan] + np.array(tmp_team_frame['team_score'])[:-1].tolist()), timeperiod = 1, matype=0)
+
+
 tmp_team_frame
 
 team_frames = []
