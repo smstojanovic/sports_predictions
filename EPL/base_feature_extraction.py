@@ -25,35 +25,62 @@ df = df.sort_values(['date'])
 # get team list
 teams = list(set(df['team_1_name'].unique().tolist()) | set(df['team_2_name'].unique().tolist()))
 
-
+def team_result(team_score,opponent_score):
+    if team_score > opponent_score:
+        return('team_win')
+    elif team_score < opponent_score:
+        return('team_loss')
+    else:
+        return('tie')
 # helper functions for feature building below:
-tmp_team_frame = team_frames[-1]
-#def build_features(team_frame):
+#tmp_team_frame = team_frames[-1]
+def build_rolling_features(team_frame):
 
-# remove any nan scores
-#tmp_team_frame = tmp_team_frame[np.isnan(tmp_team_frame['team_score']) == False]
-tmp_team_frame = tmp_team_frame.sort_values(['date'])
+    # remove any nan scores
+    tmp_team_frame = team_frame.sort_values(['date'])
 
-# get match count in EPL
-tmp_team_frame = tmp_team_frame.reset_index(drop = True).reset_index()
-tmp_team_frame['match_count'] = tmp_team_frame['index']+1
-tmp_team_frame = tmp_team_frame.drop('index', axis = 1)
+    # get match count in EPL
+    tmp_team_frame = tmp_team_frame.reset_index(drop = True).reset_index()
+    tmp_team_frame['match_count'] = tmp_team_frame['index']+1
+    tmp_team_frame = tmp_team_frame.drop('index', axis = 1)
 
-np.array(tmp_team_frame['team_score'])
+    # get rolling moving averages of scores (rolling offensive properties)
+    tmp_team_frame['team_score_ma_10'] = talib.MA(np.array([np.nan] + np.array(tmp_team_frame['team_score'])[:-1].tolist()), timeperiod = 10, matype=0)
+    tmp_team_frame['team_score_ema_10'] = talib.EMA(np.array([np.nan] + np.array(tmp_team_frame['team_score'])[:-1].tolist()), timeperiod = 10)
+    tmp_team_frame['team_last_score'] = talib.MA(np.array([np.nan] + np.array(tmp_team_frame['team_score'])[:-1].tolist()), timeperiod = 1, matype=0)
+    # get rolling moveing averages of scores (rolling defensive properties)
+    tmp_team_frame['opponent_score_ma_10'] = talib.MA(np.array([np.nan] + np.array(tmp_team_frame['opponent_score'])[:-1].tolist()), timeperiod = 10, matype=0)
+    tmp_team_frame['opponent_score_ema_10'] = talib.EMA(np.array([np.nan] + np.array(tmp_team_frame['opponent_score'])[:-1].tolist()), timeperiod = 10)
+    tmp_team_frame['opponent_last_score'] = talib.MA(np.array([np.nan] + np.array(tmp_team_frame['opponent_score'])[:-1].tolist()), timeperiod = 1, matype=0)
+
+
+    # team_1_looks a lot like home team, so will want an adjusted 'weighted' score as well. Will design this to be rolling.
+    tmp_team_frame['result'] = tmp_team_frame[['team_score','opponent_score']].apply(lambda x: team_result(x[0],x[1]), 1)
+    team_type_stats = tmp_team_frame.pivot_table(index = 'team_type', columns = 'result', values = 'team_score' , aggfunc = len ).reset_index()
+    team_type_matrix = np.matrix(team_type_stats.sort_values('team_type')[['team_win','team_loss','tie']])
+
+    # calcualte indeices
+    team_type_result_ratios = team_type_matrix / np.repeat(team_type_matrix.sum(axis = 1),3,axis=1)
+    team_type_result_indices = team_type_result_ratios / np.repeat(team_type_matrix.sum(axis = 0) / team_type_matrix.sum(axis = 0).sum(),2,axis=0)
+
+    # turn back into dataframe and join
+    tmp_result_frame = pd.DataFrame(team_type_result_indices)
+    tmp_result_frame.columns = ['team_win_index','team_loss_index','tie_index']
+    tmp_result_frame = pd.concat([team_type_stats.sort_values('team_type'), tmp_result_frame], axis = 1)
+
+
+    return(tmp_team_frame)
 
 
 
-# get rolling moving averages of scores
-tmp_team_frame['team_score_ma_10'] = talib.MA(np.array([np.nan] + np.array(tmp_team_frame['team_score'])[:-1].tolist()), timeperiod = 10, matype=0)
-tmp_team_frame['team_score_ema_10'] = talib.EMA(np.array([np.nan] + np.array(tmp_team_frame['team_score'])[:-1].tolist()), timeperiod = 10)
-tmp_team_frame['team_last_score'] = talib.MA(np.array([np.nan] + np.array(tmp_team_frame['team_score'])[:-1].tolist()), timeperiod = 1, matype=0)
+
 
 
 tmp_team_frame
 
+
 team_frames = []
 # break out dataframe by team (manual group by for ability to do complex feature construction)
-team = teams[0]
 for team in teams:
     # build tmp frame for all times team_1 appears
     tmp_team_1 = df[df['team_1_name'] == team].copy()
@@ -70,18 +97,35 @@ for team in teams:
     tmp_team_frame['team_name'] = team
 
     # build features
-
+    tmp_team_frame = build_rolling_features(tmp_team_frame)
 
     # break out dataframe by team (manual group by for ability to do complex feature construction)
     team_frames.append(tmp_team_frame)
 
+def win_tie_loss(team_1_score,team_2_score):
+    if team_1_score > team_2_score:
+        return('team_1_win')
+    elif team_1_score < team_2_score:
+        return('team_2_win')
+    else:
+        return('tie')
 
-team_frames[10]
+
+df['result'] = df[['team_1_score','team_2_score']].apply(lambda x: win_tie_loss(x['team_1_score'],x['team_2_score']),1)
 
 
-tmp_team_frame
+team_frame = pd.concat(team_frames,axis=0)
 
-team_1_df = df.groupby('team_1','date')
+team_frame['result'] = team_frame[['team_score','opponent_score']].apply(lambda x: win_tie_loss(x['team_score'],x['opponent_score']),1)
+
+
+
+
+
+
+team_frame
+
+
 
 df['team_1_ma_10'] = talib.MA(np.array(df['team_1_score']), timeperiod = 10)
 df['team_2_ma_10'] = talib.MA(np.array(df['team_2_score']), timeperiod = 10)
