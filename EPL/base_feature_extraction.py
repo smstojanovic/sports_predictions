@@ -149,22 +149,28 @@ df
 # bring all team features together
 #team_frame[['id','match_count','opponent_last_score','opponent_score_ema_10','opponent_score_ma_10','team_last_score','team_score_ema_10','team_score_ma_10','team_win_index','team_loss_index','tie_index']]
 
-team_frame_1 = team_frame[['id','match_count','opponent_last_score','opponent_score_ema_10','opponent_score_ma_10','team_last_score','team_score_ema_10','team_score_ma_10','team_win_index','team_loss_index','tie_index']].copy()
-team_frame_1.columns = ['team_1_' + x if index > 0 else x for index, x in enumerate(team_frame_1.columns.tolist())]
+team_frame_1 = team_frame[['id','team_name','match_count','opponent_last_score','opponent_score_ema_10','opponent_score_ma_10','team_last_score','team_score_ema_10','team_score_ma_10','team_win_index','team_loss_index','tie_index']].copy()
+team_frame_1.columns = ['team_1_' + x if index > 1 else x for index, x in enumerate(team_frame_1.columns.tolist())]
 
-team_frame_2 = team_frame[['id','match_count','opponent_last_score','opponent_score_ema_10','opponent_score_ma_10','team_last_score','team_score_ema_10','team_score_ma_10','team_win_index','team_loss_index','tie_index']].copy()
-team_frame_2.columns = ['team_2_' + x if index > 0 else x for index, x in enumerate(team_frame_2.columns.tolist())]
+team_frame_2 = team_frame[['id','team_name','match_count','opponent_last_score','opponent_score_ema_10','opponent_score_ma_10','team_last_score','team_score_ema_10','team_score_ma_10','team_win_index','team_loss_index','tie_index']].copy()
+team_frame_2.columns = ['team_2_' + x if index > 1 else x for index, x in enumerate(team_frame_2.columns.tolist())]
+
+team_frame
+
+len(df)
 
 df = pd.merge(
     df,
     team_frame_1,
-    on = 'id'
+    left_on = ['id','team_1_name'],
+    right_on = ['id','team_name']
 )
 
 df = pd.merge(
     df,
     team_frame_2,
-    on = 'id'
+    left_on = ['id','team_2_name'],
+    right_on = ['id','team_name']
 )
 
 
@@ -230,7 +236,7 @@ df['y_day'] = df['date'].apply(lambda x: day_fourier_components(x)[1])
 team_frame_1.columns
 df.columns
 
-df[['data_type','result','team_1_score','team_2_score','is_february','is_november','c_ability_3','d_ability_1','d_ability_3','d_ability_4', 'd_form_4', 'd_h2h_2', 'team_1_name', 'team_2_name',
+df[['id','data_type','result','team_1_score','team_2_score','is_february','is_november','c_ability_3','d_ability_1','d_ability_3','d_ability_4', 'd_form_4', 'd_h2h_2', 'team_1_name', 'team_2_name',
     'team_1_match_count', 'team_1_opponent_last_score',
            'team_1_opponent_score_ema_10', 'team_1_opponent_score_ma_10',
            'team_1_team_last_score', 'team_1_team_score_ema_10',
@@ -242,3 +248,8 @@ df[['data_type','result','team_1_score','team_2_score','is_february','is_novembe
            'team_2_team_score_ma_10', 'team_2_team_win_index',
            'team_2_team_loss_index', 'team_2_tie_index',
            'x_year','y_year','x_week','y_week','x_day','y_day']].to_csv('epl_data_w_features.csv',index=False)
+
+
+
+
+df
