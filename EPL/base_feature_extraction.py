@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import os
 import talib
+from tqdm import tqdm
+os.chdir('EPL')
 
 df = pd.read_csv('english_premier_league_historical_data.csv')
 df_comp = pd.read_csv('english_premier_league_competition_data.csv')
@@ -32,8 +34,42 @@ def team_result(team_score,opponent_score):
         return('team_loss')
     else:
         return('tie')
+
+
+
+def GenerateRollingResultIndex(index_roll, tmp_team_frame):
+    # team_1_looks a lot like home team, so will want an adjusted 'weighted' score as well. Will design this to be rolling.
+    #index_roll = 20
+
+    tmp_team_frame['result'] = tmp_team_frame[['team_score','opponent_score']].apply(lambda x: team_result(x[0],x[1]), 1)
+    team_type_stats = tmp_team_frame.iloc[:index_roll].pivot_table(index = 'team_type', columns = 'result', values = 'team_score' , aggfunc = len ).reset_index()
+
+    if len(team_type_stats.columns.tolist()) < 4:
+        return(tmp_team_frame.iloc[index_roll:index_roll+1])
+
+
+    team_type_matrix = np.matrix(team_type_stats.sort_values('team_type')[['team_win','team_loss','tie']])
+
+    # calcualte indeices
+    team_type_result_ratios = team_type_matrix / np.repeat(team_type_matrix.sum(axis = 1),3,axis=1)
+    team_type_result_indices = team_type_result_ratios / np.repeat(team_type_matrix.sum(axis = 0) / team_type_matrix.sum(axis = 0).sum(),2,axis=0)
+
+    # turn back into dataframe and join
+    tmp_result_frame = pd.DataFrame(team_type_result_indices)
+    tmp_result_frame.columns = ['team_win_index','team_loss_index','tie_index']
+    tmp_result_frame = pd.concat([team_type_stats.sort_values('team_type'), tmp_result_frame], axis = 1)
+
+    tmp_result_frame = pd.merge(
+                                tmp_team_frame.iloc[index_roll:index_roll+1],
+                                tmp_result_frame,
+                                on = 'team_type'
+                                )
+
+    return(tmp_result_frame)
+
+
 # helper functions for feature building below:
-#tmp_team_frame = team_frames[-1]
+#team_frame = team_frames[-1]
 def build_rolling_features(team_frame):
 
     # remove any nan scores
@@ -53,35 +89,21 @@ def build_rolling_features(team_frame):
     tmp_team_frame['opponent_score_ema_10'] = talib.EMA(np.array([np.nan] + np.array(tmp_team_frame['opponent_score'])[:-1].tolist()), timeperiod = 10)
     tmp_team_frame['opponent_last_score'] = talib.MA(np.array([np.nan] + np.array(tmp_team_frame['opponent_score'])[:-1].tolist()), timeperiod = 1, matype=0)
 
+    # generate the rolling 'match result' indices
+    # note that this is really slow at the moment. Will vectorize this operation at some point.
+    tmp_frames = []
+    for index in range(len(tmp_team_frame)):
+        tmp_frames.append(GenerateRollingResultIndex(index, tmp_team_frame))
 
-    # team_1_looks a lot like home team, so will want an adjusted 'weighted' score as well. Will design this to be rolling.
-    tmp_team_frame['result'] = tmp_team_frame[['team_score','opponent_score']].apply(lambda x: team_result(x[0],x[1]), 1)
-    team_type_stats = tmp_team_frame.pivot_table(index = 'team_type', columns = 'result', values = 'team_score' , aggfunc = len ).reset_index()
-    team_type_matrix = np.matrix(team_type_stats.sort_values('team_type')[['team_win','team_loss','tie']])
-
-    # calcualte indeices
-    team_type_result_ratios = team_type_matrix / np.repeat(team_type_matrix.sum(axis = 1),3,axis=1)
-    team_type_result_indices = team_type_result_ratios / np.repeat(team_type_matrix.sum(axis = 0) / team_type_matrix.sum(axis = 0).sum(),2,axis=0)
-
-    # turn back into dataframe and join
-    tmp_result_frame = pd.DataFrame(team_type_result_indices)
-    tmp_result_frame.columns = ['team_win_index','team_loss_index','tie_index']
-    tmp_result_frame = pd.concat([team_type_stats.sort_values('team_type'), tmp_result_frame], axis = 1)
-
+    tmp_team_frame = pd.concat(tmp_frames)
 
     return(tmp_team_frame)
 
-
-
-
-
-
-tmp_team_frame
-
+#tmp_team_frame
 
 team_frames = []
 # break out dataframe by team (manual group by for ability to do complex feature construction)
-for team in teams:
+for team in tqdm(teams):
     # build tmp frame for all times team_1 appears
     tmp_team_1 = df[df['team_1_name'] == team].copy()
     tmp_team_1 = tmp_team_1[['id','date','team_1_score','team_2_score','team_2_name']]
@@ -120,15 +142,27 @@ team_frame['result'] = team_frame[['team_score','opponent_score']].apply(lambda 
 
 
 
+df
 
+# bring all team features together
+team_frame[['id','match_count','opponent_last_score','opponent_score_ema_10','opponent_score_ma_10','team_last_score','team_score_ema_10','team_score_ma_10','team_win_index','team_loss_index','tie_index']]
 
+team_frame_1 = team_frame[['id','match_count','opponent_last_score','opponent_score_ema_10','opponent_score_ma_10','team_last_score','team_score_ema_10','team_score_ma_10','team_win_index','team_loss_index','tie_index']].copy()
+team_frame_1.columns = ['team_1_' + x if index > 0 else x for index, x in enumerate(team_frame_1.columns.tolist())]
 
-team_frame
+team_frame_2 = team_frame[['id','match_count','opponent_last_score','opponent_score_ema_10','opponent_score_ma_10','team_last_score','team_score_ema_10','team_score_ma_10','team_win_index','team_loss_index','tie_index']].copy()
+team_frame_2.columns = ['team_1_' + x if index > 0 else x for index, x in enumerate(team_frame_2.columns.tolist())]
 
+df = pd.merge(
+    df,
+    team_frame_1,
+    on = 'id'
+)
 
+df = pd.merge(
+    df,
+    team_frame_2,
+    on = 'id'
+)
 
-df['team_1_ma_10'] = talib.MA(np.array(df['team_1_score']), timeperiod = 10)
-df['team_2_ma_10'] = talib.MA(np.array(df['team_2_score']), timeperiod = 10)
-
-
-df.head(3)
+# time features.
