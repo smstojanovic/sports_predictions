@@ -3,6 +3,8 @@ import pandas as pd
 import os
 import talib
 from tqdm import tqdm
+import datetime
+import calendar
 os.chdir('EPL')
 
 df = pd.read_csv('english_premier_league_historical_data.csv')
@@ -165,4 +167,62 @@ df = pd.merge(
     on = 'id'
 )
 
-# time features.
+
+### build time features.
+
+# first fourier component (yearly periodicity)
+
+#
+# time = datetime.datetime.strftime(datetime.datetime.now(), '%Y-%m-%d %H:%M:%S')
+#
+# day_of_year = datetime.datetime.strptime(time,'%Y-%m-%d %H:%M:%S').timetuple().tm_yday
+#
+# weekday = datetime.datetime.strptime(time,'%Y-%m-%d %H:%M:%S').weekday()
+# hour = datetime.datetime.strptime(time,'%Y-%m-%d %H:%M:%S').hour
+# minute = datetime.datetime.strptime(time,'%Y-%m-%d %H:%M:%S').minute
+#
+#
+# weekday += hour/24
+#
+# weekday
+
+def year_fourier_components(time):
+    day_of_year = datetime.datetime.strptime(time,'%Y-%m-%d %H:%M:%S').timetuple().tm_yday
+
+    if calendar.isleap(datetime.datetime.now().year):
+        x = np.cos(day_of_year/366*2*np.pi)
+        y = np.sin(day_of_year/366*2*np.pi)
+    else:
+        x = np.cos(day_of_year/365*2*np.pi)
+        y = np.sin(day_of_year/365*2*np.pi)
+
+    return(x,y)
+
+def week_fourier_components(time):
+    weekday = datetime.datetime.strptime(time,'%Y-%m-%d %H:%M:%S').weekday()
+    hour = datetime.datetime.strptime(time,'%Y-%m-%d %H:%M:%S').hour
+
+    weekday += hour/24
+
+    x = np.cos(weekday/7*2*np.pi)
+    y = np.sin(weekday/7*2*np.pi)
+
+    return(x,y)
+
+def day_fourier_components(time):
+    minute = datetime.datetime.strptime(time,'%Y-%m-%d %H:%M:%S').minute
+
+    x = np.cos(minute/60*2*np.pi)
+    y = np.sin(minute/60*2*np.pi)
+
+    return(x,y)
+
+
+df['x_year'] = df['date'].apply(lambda x: year_fourier_components(x)[0])
+df['y_year'] = df['date'].apply(lambda x: year_fourier_components(x)[1])
+df['x_week'] = df['date'].apply(lambda x: week_fourier_components(x)[0])
+df['y_week'] = df['date'].apply(lambda x: week_fourier_components(x)[1])
+df['x_day'] = df['date'].apply(lambda x: day_fourier_components(x)[0])
+df['y_day'] = df['date'].apply(lambda x: day_fourier_components(x)[1])
+
+df.to_csv('epl_data_w_features.csv')
