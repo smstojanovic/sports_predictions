@@ -82,7 +82,7 @@ import importlib
 import Python_Score_Models_Play
 Python_Score_Models_Play = importlib.reload(Python_Score_Models_Play)
 
-hist_data, comp_data = Python_Score_Models_Play.BuildPoissonModels(hist_data, feature_list, comp_data)
+#hist_data, comp_data = Python_Score_Models_Play.BuildPoissonModels(hist_data, feature_list, comp_data)
 
 comp_data
 
@@ -101,3 +101,12 @@ submit_frame
 #submit
 throne = peyton.Throne(username='smstojanovic', token=os.environ['THRONE_TOKEN'])
 throne.competition('English Premier League').submit(submit_frame)
+
+
+obj = {'hist_data' : hist_data,
+'features_list' :  feature_list}
+
+import pickle
+
+with open('tmp.pkl','wb') as f:
+    pickle.dump(obj, f)
