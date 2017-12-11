@@ -57,7 +57,7 @@ hist_data.head(3)
 feature_list = modelled_features + [x for x in team_1_encoded.columns.tolist() if x != 'id'] + [x for x in team_2_encoded.columns.tolist() if x != 'id']
 
 hist_data = hist_data[["team_1_score","team_2_score","id"] + feature_list].dropna(axis = 0)
-hist_data
+
 
 
 for col in hist_data.columns.tolist():
@@ -74,47 +74,30 @@ for col in feature_list:
         feature_list = [x for x in feature_list if x != col]
         print(col)
 
-hist_data_1 = hist_data[["team_1_score"] + feature_list]
-hist_data_2 = hist_data[["team_2_score"] + feature_list]
-
-formula_1 = "team_1_score ~ " + " + ".join(feature_list)
-formula_2 = "team_2_score ~ " + " + ".join(feature_list)
-
-# using the GEE package along with independance assumptions to fit poisson model.
-# Am assuming this is using a maximum likleyhood approach?
-fam = Poisson()
-ind = Independence()
-
-model_1 = GEE.from_formula(formula_1, "team_1_score", hist_data, cov_struct=ind, family=fam)
-model_2 = GEE.from_formula(formula_2, "team_2_score", hist_data, cov_struct=ind, family=fam)
-
-model_1_fit = model_1.fit()
-model_2_fit = model_2.fit()
-print(model_1_fit.summary())
-
-
-hist_data['team_1_score_pred'] = model_1_fit.predict(hist_data)
-hist_data['team_2_score_pred'] = model_2_fit.predict(hist_data)
-
-
-# prepare comp data
+# define competition data
 comp_data = df_model[df_model['data_type'] == 'comp']
+
+# Build Poisson Models.
+import importlib
+import Python_Score_Models_Play
+Python_Score_Models_Play = importlib.reload(Python_Score_Models_Play)
+
+hist_data, comp_data = Python_Score_Models_Play.BuildPoissonModels(hist_data, feature_list, comp_data)
+
 comp_data
-
-comp_data['team_1_score_pred'] = model_1_fit.predict(comp_data[feature_list])
-comp_data['team_2_score_pred'] = model_2_fit.predict(comp_data[feature_list])
-
-comp_data['team_1_prob'] = comp_data[['team_1_score_pred','team_2_score_pred']].apply(lambda x: 1 - skellam.cdf(0,x['team_1_score_pred'],x['team_2_score_pred']), 1)
-comp_data['team_tie_prob'] = comp_data[['team_1_score_pred','team_2_score_pred']].apply(lambda x: skellam.pmf(0,x['team_1_score_pred'],x['team_2_score_pred']), 1)
-comp_data['team_2_prob'] = comp_data[['team_1_score_pred','team_2_score_pred']].apply(lambda x: skellam.cdf(-1,x['team_1_score_pred'],x['team_2_score_pred']), 1)
 
 comp_data["confidence"] = 1.0
 
 ## subbmit comp data
-
 # check competition results
-comp_data[['id','team_1_name','team_2_name','team_1_prob','confidence','team_tie_prob','team_2_prob']]
+submit_frame = comp_data[['id','team_1_name','team_2_name','team_1_prob','confidence','team_tie_prob','team_2_prob']]
+
+submit_frame
+
+# manual confidence lever settings.
+#submit_frame.set_value(5219,'confidence', 0.5)
+#submit_frame.set_value(5221,'confidence', 0.25)
 
 #submit
 throne = peyton.Throne(username='smstojanovic', token=os.environ['THRONE_TOKEN'])
-throne.competition('English Premier League').submit(comp_data[['id','team_1_name','team_2_name','team_1_prob','confidence','team_tie_prob','team_2_prob']])
+throne.competition('English Premier League').submit(submit_frame)
