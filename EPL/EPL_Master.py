@@ -83,6 +83,7 @@ import Python_Score_Models_Play
 Python_Score_Models_Play = importlib.reload(Python_Score_Models_Play)
 
 #hist_data, comp_data = Python_Score_Models_Play.BuildPoissonModels(hist_data, feature_list, comp_data)
+hist_data, comp_data = Python_Score_Models_Play.BuildPoissonXGBTree(hist_data, feature_list, comp_data)
 
 comp_data
 
