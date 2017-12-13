@@ -39,7 +39,8 @@ import numpy as np
 #                     , feature_names=feature_list)
 
 def BuildPoissonXGBTree(hist_data, feature_list, comp_data = None):
-
+    ''' Build score predictions via (tree based) poisson regression. '''
+    
     dtrain_1 = xgb.DMatrix(data=np.matrix(hist_data[feature_list])
                          ,label=np.array(hist_data["team_1_score"])
                          , feature_names=feature_list)
@@ -93,6 +94,10 @@ def BuildPoissonXGBTree(hist_data, feature_list, comp_data = None):
     return hist_data, comp_data
 
 
+
+
+
+
 # def plot_importance(booster, figsize):
 #     from matplotlib import pyplot as plt
 #     from xgboost import plot_importance
@@ -102,7 +107,7 @@ def BuildPoissonXGBTree(hist_data, feature_list, comp_data = None):
 #plot_importance(bst_2,(14, 11))
 
 def BuildPoissonModels(hist_data, feature_list, comp_data = None):
-
+    ''' Build score predictions via (linear) poisson regression. '''
     hist_data_1 = hist_data[["team_1_score"] + feature_list]
     hist_data_2 = hist_data[["team_2_score"] + feature_list]
 
@@ -139,3 +144,15 @@ def BuildPoissonModels(hist_data, feature_list, comp_data = None):
     comp_data['team_2_prob'] = comp_data[['team_1_score_pred','team_2_score_pred']].apply(lambda x: skellam.cdf(-1,x['team_1_score_pred'],x['team_2_score_pred']), 1)
 
     return hist_data, comp_data
+
+
+
+def PoissonNLogLiklihood(df, score_name, pred_name):
+    ''' calculates the negative log liklihood of a dataframe of predictions '''
+    return(
+        df[[score_name,pred_name]].\
+            apply(lambda x: -1*(x[score_name] * np.log(x[pred_name])
+                                - x[pred_name]
+                                - np.log(np.math.factorial(x[score_name])))
+                 , 1 ).mean()
+            )

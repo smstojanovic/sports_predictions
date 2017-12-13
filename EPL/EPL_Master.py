@@ -82,10 +82,47 @@ import importlib
 import Python_Score_Models_Play
 Python_Score_Models_Play = importlib.reload(Python_Score_Models_Play)
 
-#hist_data, comp_data = Python_Score_Models_Play.BuildPoissonModels(hist_data, feature_list, comp_data)
-hist_data, comp_data = Python_Score_Models_Play.BuildPoissonXGBTree(hist_data, feature_list, comp_data)
+hist_data, comp_data = Python_Score_Models_Play.BuildPoissonModels(hist_data, feature_list, comp_data)
+hist_data_lin = hist_data.copy()
+comp_data_lin = comp_data.copy()
 
-comp_data
+#Python_Score_Models_Play.PoissonNLogLiklihood(hist_data_lin, 'team_1_score','team_1_score_pred')
+
+hist_data_lin['team_1_score_pred_lin'] = hist_data_lin['team_1_score_pred']
+hist_data_lin['team_2_score_pred_lin'] = hist_data_lin['team_2_score_pred']
+comp_data_lin['team_1_score_pred_lin'] = comp_data_lin['team_1_score_pred']
+comp_data_lin['team_2_score_pred_lin'] = comp_data_lin['team_2_score_pred']
+
+hist_data_tree, comp_data_tree = Python_Score_Models_Play.BuildPoissonXGBTree(hist_data, feature_list, comp_data)
+
+hist_data_tree['team_1_score_pred_tree'] = hist_data_tree['team_1_score_pred']
+hist_data_tree['team_2_score_pred_tree'] = hist_data_tree['team_2_score_pred']
+comp_data_tree['team_1_score_pred_tree'] = comp_data_tree['team_1_score_pred']
+comp_data_tree['team_2_score_pred_tree'] = comp_data_tree['team_2_score_pred']
+
+#Python_Score_Models_Play.PoissonNLogLiklihood(hist_data_lin, 'team_1_score','team_1_score_pred')
+
+# really basic 'ensemble'. Will build a 'voting' model in the future.
+hist_data_ens = pd.concat( [
+                            hist_data[feature_list],
+                            hist_data_lin[['team_1_score_pred_lin','team_2_score_pred_lin','team_1_score','team_2_score']],
+                            hist_data_tree[['team_1_score_pred_tree','team_2_score_pred_tree']]
+                            ]
+                        , axis = 1
+                        )
+
+
+comp_data_ens = pd.concat( [
+                            comp_data[['id','team_1_name','team_2_name'] + feature_list],
+                            comp_data_lin[['team_1_score_pred_lin','team_2_score_pred_lin','team_1_score','team_2_score']],
+                            comp_data_tree[['team_1_score_pred_tree','team_2_score_pred_tree']]
+                            ]
+                        , axis = 1
+                        )
+
+hist_data, comp_data = Python_Score_Models_Play.BuildPoissonXGBTree(hist_data_ens, feature_list + ['team_1_score_pred_lin','team_2_score_pred_lin','team_1_score_pred_tree','team_2_score_pred_tree'], comp_data_ens)
+
+
 
 comp_data["confidence"] = 1.0
 
