@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import importlib
+importlib.reload(base_feature_extraction)
 import base_feature_extraction
 from statsmodels.genmod.generalized_estimating_equations import GEE
 from statsmodels.genmod.cov_struct import (Exchangeable,
@@ -78,7 +80,7 @@ for col in feature_list:
 comp_data = df_model[df_model['data_type'] == 'comp']
 
 # Build Poisson Models.
-import importlib
+
 import Python_Score_Models_Play
 Python_Score_Models_Play = importlib.reload(Python_Score_Models_Play)
 

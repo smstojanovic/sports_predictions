@@ -186,7 +186,9 @@ def GetFrameWithFeatures():
     #tmp_team_frame
 
     team_frames = []
-    # break out dataframe by team (manual group by for ability to do complex feature construction)
+
+
+        # break out dataframe by team (manual group by for ability to do complex feature construction)
     for team in tqdm(teams):
         # build tmp frame for all times team_1 appears
         tmp_team_1 = df[df['team_1_name'] == team].copy()
@@ -202,11 +204,13 @@ def GetFrameWithFeatures():
         tmp_team_frame = pd.concat([tmp_team_1,tmp_team_2])
         tmp_team_frame['team_name'] = team
 
-        # build features
-        tmp_team_frame = build_rolling_features(tmp_team_frame)
 
-        # break out dataframe by team (manual group by for ability to do complex feature construction)
-        team_frames.append(tmp_team_frame)
+        if len(tmp_team_frame) > 20:
+            # build features
+            tmp_team_frame = build_rolling_features(tmp_team_frame)
+
+            # break out dataframe by team (manual group by for ability to do complex feature construction)
+            team_frames.append(tmp_team_frame)
 
 
     df['result'] = df[['team_1_score','team_2_score']].apply(lambda x: win_tie_loss(x['team_1_score'],x['team_2_score']),1)
@@ -254,7 +258,7 @@ def GetFrameWithFeatures():
     df['x_day'] = df['date'].apply(lambda x: day_fourier_components(x)[0])
     df['y_day'] = df['date'].apply(lambda x: day_fourier_components(x)[1])
 
-
+    df
 
     df[['id','data_type','result','team_1_score','team_2_score','is_february','is_november','c_ability_3','d_ability_1','d_ability_3','d_ability_4', 'd_form_4', 'd_h2h_2', 'team_1_name', 'team_2_name',
         'team_1_match_count', 'team_1_opponent_last_score',
